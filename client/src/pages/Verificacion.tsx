@@ -15,64 +15,41 @@ import { useToast } from "@/hooks/use-toast";
 
 const subjects = ["Matemáticas", "Ciencias", "Historia", "Lengua", "Inglés", "Educación Física"];
 
-export default function Verificacion() {
+type VerificacionProps = {
+  serialLogs?: any[];
+};
+
+export default function Verificacion({ serialLogs = [] }: VerificacionProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(subjects[0]);
-  const [logs, setLogs] = useState([
-    { timestamp: "2025-01-15 10:00:00", message: "Sistema listo para verificación" }
-  ]);
   const { toast } = useToast();
 
-  const handleStartVerification = () => {
+  const handleStartVerification = async () => {
     setIsVerifying(true);
-    addLog(`Modo VERIFICACIÓN activado. Asignatura: ${selectedSubject}. Coloque el dedo...`);
-    
-    setTimeout(() => {
-      simulateVerification();
-    }, 2000);
-  };
-
-  const simulateVerification = () => {
-    const students = [
-      { id: 14, name: "Juan Pérez", grade: "5to Grado" },
-      { id: 23, name: "María González", grade: "6to Grado" },
-      { id: 8, name: "Carlos Rodríguez", grade: "4to Grado" },
-    ];
-    
-    const student = students[Math.floor(Math.random() * students.length)];
-    const now = new Date();
-    const time = now.toLocaleTimeString("es-ES");
-    const date = now.toLocaleDateString("es-ES");
-    
-    addLog(`✅ ${student.name} (${student.grade}) - ${selectedSubject} - ${date} ${time}`);
-    
-    toast({
-      title: "Asistencia Registrada",
-      description: `${student.name} - ${selectedSubject}`,
-    });
-
-    if (isVerifying) {
-      setTimeout(() => {
-        if (isVerifying) simulateVerification();
-      }, 3000);
+    try {
+      // Enviar comando de verificación al Arduino
+      await fetch('/api/serial/verify', { method: 'POST' });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
-  const handleStopVerification = () => {
+  const handleStopVerification = async () => {
     setIsVerifying(false);
-    addLog("Se detuvo el modo de verificación");
-  };
-
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleString("es-ES", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    setLogs(prev => [...prev, { timestamp, message }]);
+    try {
+      // Enviar comando de detener al Arduino
+      await fetch('/api/serial/stop', { method: 'POST' });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -139,7 +116,7 @@ export default function Verificacion() {
         </div>
 
         <div>
-          <LogConsole title="Log de Verificación" logs={logs} height="h-[500px]" />
+          <LogConsole title="Log de Verificación" logs={serialLogs} height="h-[500px]" />
         </div>
       </div>
     </div>

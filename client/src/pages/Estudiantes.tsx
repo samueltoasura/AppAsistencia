@@ -10,7 +10,11 @@ import StudentProfile from "@/components/StudentProfile";
 import ExcelImport from "@/components/ExcelImport";
 import type { Student } from "@shared/schema";
 
-export default function Estudiantes() {
+type EstudiantesProps = {
+  serialLogs?: any[];
+};
+
+export default function Estudiantes({ serialLogs = [] }: EstudiantesProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
@@ -283,6 +287,7 @@ export default function Estudiantes() {
           onClose={() => setSelectedStudent(null)}
           onRegisterFingerprint={handleRegisterFingerprint}
           onEdit={handleEditStudent}
+          serialLogs={serialLogs}
         />
       )}
     </div>

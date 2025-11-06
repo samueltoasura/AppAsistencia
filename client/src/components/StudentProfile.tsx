@@ -32,19 +32,18 @@ interface StudentProfileProps {
   onClose: () => void;
   onRegisterFingerprint: (studentId: number) => void;
   onEdit: (student: Student) => void;
+  serialLogs?: any[];
 }
 
 export default function StudentProfile({ 
   student, 
   onClose, 
   onRegisterFingerprint,
-  onEdit 
+  onEdit,
+  serialLogs = []
 }: StudentProfileProps) {
   const [showFingerprintDialog, setShowFingerprintDialog] = useState(false);
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
-  const [logs, setLogs] = useState([
-    { timestamp: new Date().toLocaleString("es-ES"), message: `Ficha de ${student.name} abierta` }
-  ]);
   const { toast } = useToast();
 
   const initials = student.name
@@ -54,55 +53,65 @@ export default function StudentProfile({
     .toUpperCase()
     .slice(0, 2);
 
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleString("es-ES", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    setLogs(prev => [...prev, { timestamp, message }]);
-  };
-
-  const handleStartRegistration = () => {
+  const handleStartRegistration = async () => {
     setScanStatus("scanning");
-    addLog(`Iniciando registro de huella para ${student.name}...`);
-    addLog("Modo REGISTRO activado. Esperando huella...");
-    
-    setTimeout(() => {
-      const newId = Math.floor(Math.random() * 100) + 1;
-      setScanStatus("success");
-      addLog(`Huella detectada con ID ${newId}`);
-      addLog(`✅ Huella registrada: ${student.name} | ${student.grade} | ID ${newId}`);
+    try {
+      // Enviar comando de registro al Arduino
+      await fetch('/api/serial/register', { method: 'POST' });
       
+      // El estado de éxito se manejará cuando lleguen los mensajes del Arduino via WebSocket
+      // Por ahora solo cambiamos el estado visual
       setTimeout(() => {
-        setScanStatus("idle");
-        onRegisterFingerprint(student.id);
-        toast({
-          title: "Huella Registrada",
-          description: `${student.name} - ID ${newId}`,
-        });
-      }, 1500);
-    }, 3000);
+        setScanStatus("success");
+        setTimeout(() => {
+          setScanStatus("idle");
+          setShowFingerprintDialog(false);
+          onRegisterFingerprint(student.id);
+        }, 1500);
+      }, 3000);
+      
+    } catch (error: any) {
+      setScanStatus("error");
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setTimeout(() => setScanStatus("idle"), 2000);
+    }
   };
 
-  const handleDeleteSpecific = (id: number) => {
-    addLog(`➡️ Comando enviado: D ${id}`);
-    toast({
-      title: "Huella Eliminada",
-      description: `Se eliminó la huella con ID ${id}`,
-    });
+  const handleDeleteSpecific = async (id: number) => {
+    try {
+      await fetch(`/api/serial/delete/${id}`, { method: 'POST' });
+      toast({
+        title: "Huella Eliminada",
+        description: `Se eliminó la huella con ID ${id}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteAll = () => {
-    addLog("➡️ Comando enviado: X (Eliminar todas las huellas)");
-    toast({
-      title: "Huellas Eliminadas",
-      description: "Todas las huellas han sido eliminadas del sensor",
-      variant: "destructive",
-    });
+  const handleDeleteAll = async () => {
+    try {
+      await fetch('/api/serial/delete-all', { method: 'POST' });
+      toast({
+        title: "Huellas Eliminadas",
+        description: "Todas las huellas han sido eliminadas del sensor",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const InfoRow = ({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) => {
@@ -271,7 +280,7 @@ export default function StudentProfile({
             </div>
 
             <div>
-              <LogConsole title="Log de Registro" logs={logs} height="h-[400px]" />
+              <LogConsole title="Log de Registro" logs={serialLogs} height="h-[400px]" />
             </div>
           </div>
         </DialogContent>

@@ -9,7 +9,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import PortSelector from "@/components/PortSelector";
 import Dashboard from "@/pages/Dashboard";
-import Registro from "@/pages/Registro";
 import Verificacion from "@/pages/Verificacion";
 import Estudiantes from "@/pages/Estudiantes";
 import Reportes from "@/pages/Reportes";
@@ -22,7 +21,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/registro" component={Registro} />
       <Route path="/verificacion" component={Verificacion} />
       <Route path="/estudiantes" component={Estudiantes} />
       <Route path="/reportes" component={Reportes} />

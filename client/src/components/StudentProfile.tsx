@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import type { Student } from "@shared/schema";
 import FingerprintScanner from "./FingerprintScanner";
+import LogConsole from "./LogConsole";
+import DeleteFingerprintControl from "./DeleteFingerprintControl";
+import { useToast } from "@/hooks/use-toast";
 
 interface StudentProfileProps {
   student: Student;
@@ -39,6 +42,10 @@ export default function StudentProfile({
 }: StudentProfileProps) {
   const [showFingerprintDialog, setShowFingerprintDialog] = useState(false);
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
+  const [logs, setLogs] = useState([
+    { timestamp: new Date().toLocaleString("es-ES"), message: `Ficha de ${student.name} abierta` }
+  ]);
+  const { toast } = useToast();
 
   const initials = student.name
     .split(" ")
@@ -47,16 +54,55 @@ export default function StudentProfile({
     .toUpperCase()
     .slice(0, 2);
 
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleString("es-ES", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    setLogs(prev => [...prev, { timestamp, message }]);
+  };
+
   const handleStartRegistration = () => {
     setScanStatus("scanning");
+    addLog(`Iniciando registro de huella para ${student.name}...`);
+    addLog("Modo REGISTRO activado. Esperando huella...");
+    
     setTimeout(() => {
+      const newId = Math.floor(Math.random() * 100) + 1;
       setScanStatus("success");
+      addLog(`Huella detectada con ID ${newId}`);
+      addLog(`✅ Huella registrada: ${student.name} | ${student.grade} | ID ${newId}`);
+      
       setTimeout(() => {
-        setShowFingerprintDialog(false);
         setScanStatus("idle");
         onRegisterFingerprint(student.id);
+        toast({
+          title: "Huella Registrada",
+          description: `${student.name} - ID ${newId}`,
+        });
       }, 1500);
     }, 3000);
+  };
+
+  const handleDeleteSpecific = (id: number) => {
+    addLog(`➡️ Comando enviado: D ${id}`);
+    toast({
+      title: "Huella Eliminada",
+      description: `Se eliminó la huella con ID ${id}`,
+    });
+  };
+
+  const handleDeleteAll = () => {
+    addLog("➡️ Comando enviado: X (Eliminar todas las huellas)");
+    toast({
+      title: "Huellas Eliminadas",
+      description: "Todas las huellas han sido eliminadas del sensor",
+      variant: "destructive",
+    });
   };
 
   const InfoRow = ({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) => {
@@ -168,44 +214,64 @@ export default function StudentProfile({
       </Dialog>
 
       <Dialog open={showFingerprintDialog} onOpenChange={setShowFingerprintDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar Huella Dactilar</DialogTitle>
+            <DialogTitle>Gestión de Huella Dactilar</DialogTitle>
             <DialogDescription>
               {student.name} - {student.grade}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <FingerprintScanner
-              status={scanStatus}
-              message={
-                scanStatus === "idle" 
-                  ? "Presione 'Iniciar' para comenzar" 
-                  : scanStatus === "scanning"
-                  ? "Coloque el dedo en el sensor..."
-                  : scanStatus === "success"
-                  ? "¡Huella registrada exitosamente!"
-                  : "Error al registrar huella"
-              }
-            />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Escáner de Huellas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FingerprintScanner
+                    status={scanStatus}
+                    message={
+                      scanStatus === "idle" 
+                        ? "Presione 'Iniciar Registro' para comenzar" 
+                        : scanStatus === "scanning"
+                        ? "Coloque el dedo en el sensor..."
+                        : scanStatus === "success"
+                        ? "¡Huella registrada exitosamente!"
+                        : "Error al registrar huella"
+                    }
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={handleStartRegistration}
+                      disabled={scanStatus !== "idle"}
+                      className="flex-1"
+                      data-testid="button-start-fingerprint-scan"
+                    >
+                      {scanStatus === "idle" ? "Iniciar Registro" : "Procesando..."}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowFingerprintDialog(false);
+                        setScanStatus("idle");
+                      }}
+                      data-testid="button-cancel-fingerprint"
+                    >
+                      Cerrar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleStartRegistration}
-                disabled={scanStatus !== "idle"}
-                className="flex-1"
-                data-testid="button-start-fingerprint-scan"
-              >
-                {scanStatus === "idle" ? "Iniciar Registro" : "Procesando..."}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowFingerprintDialog(false)}
-                data-testid="button-cancel-fingerprint"
-              >
-                Cancelar
-              </Button>
+              <DeleteFingerprintControl
+                onDeleteSpecific={handleDeleteSpecific}
+                onDeleteAll={handleDeleteAll}
+              />
+            </div>
+
+            <div>
+              <LogConsole title="Log de Registro" logs={logs} height="h-[400px]" />
             </div>
           </div>
         </DialogContent>

@@ -1,0 +1,205 @@
+#include <Adafruit_Fingerprint.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial fingerSerial(2, 3); // RX, TX
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fingerSerial);
+
+String inputString = "";
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+  Serial.println(F("Inicializando lector de huellas R307..."));
+
+  finger.begin(57600);
+  delay(100);
+
+  if (finger.verifyPassword()) {
+    Serial.println(F("Sensor de huellas inicializado correctamente."));
+  } else {
+    Serial.println(F("No se pudo comunicar con el sensor. Verifica conexiones y alimentación."));
+    while (1) { delay(1000); }
+  }
+
+  finger.getTemplateCount();
+  Serial.print(F("Cantidad actual de huellas registradas: "));
+  Serial.println(finger.templateCount);
+
+  Serial.println(F("\nComandos disponibles:"));
+  Serial.println(F("  R -> Registrar huella"));
+  Serial.println(F("  V -> Verificar huella"));
+  Serial.println(F("  D <ID> -> Eliminar huella con ID específico"));
+  Serial.println(F("  X -> Eliminar todas las huellas"));
+  Serial.println(F("  S -> Salir del modo actual"));
+}
+
+void loop() {
+  // Leer comandos recibidos desde la app o la consola serial
+  if (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      procesarComando(inputString);
+      inputString = "";
+    } else {
+      inputString += c;
+    }
+  }
+}
+
+void procesarComando(String cmd) {
+  cmd.trim();
+  cmd.toUpperCase();
+
+  if (cmd.startsWith("R")) {
+    Serial.println(F("Comando R detectado -> Modo registro"));
+    registrarHuella();
+
+  } else if (cmd.startsWith("V")) {
+    Serial.println(F("Comando V detectado -> Verificación"));
+    verificarHuella();
+
+  } else if (cmd.startsWith("D")) {
+    borrarHuella(cmd);
+
+  } else if (cmd.startsWith("X")) {
+    borrarTodas();
+
+  } else if (cmd.startsWith("S")) {
+    Serial.println(F("Comando S detectado -> Salir del modo actual"));
+
+  } else {
+    Serial.print(F("Comando no reconocido: "));
+    Serial.println(cmd);
+  }
+}
+
+/* =========================
+   FUNCIONES AUXILIARES
+   ========================= */
+
+void registrarHuella() {
+  finger.getTemplateCount();
+  int nuevoID = finger.templateCount + 1;
+
+  Serial.print(F("\nRegistrando nueva huella con ID #"));
+  Serial.println(nuevoID);
+
+  if (enrollFingerprint(nuevoID)) {
+    Serial.print(F("Huella registrada correctamente con ID #"));
+    Serial.println(nuevoID);
+  } else {
+    Serial.println(F("Error al registrar huella."));
+  }
+}
+
+bool enrollFingerprint(int id) {
+  int p = -1;
+  Serial.println(F("Coloca el dedo en el sensor..."));
+  while (p != FINGERPRINT_OK) {
+    p = finger.getImage();
+    if (p == FINGERPRINT_NOFINGER) continue;
+  }
+
+  Serial.println(F("Imagen tomada."));
+  if (finger.image2Tz(1) != FINGERPRINT_OK) return false;
+
+  Serial.println(F("Retira el dedo."));
+  delay(2000);
+  while (finger.getImage() != FINGERPRINT_NOFINGER);
+
+  Serial.println(F("Coloca el mismo dedo nuevamente..."));
+  p = -1;
+  while (p != FINGERPRINT_OK) {
+    p = finger.getImage();
+    if (p == FINGERPRINT_NOFINGER) continue;
+  }
+
+  if (finger.image2Tz(2) != FINGERPRINT_OK) return false;
+
+  if (finger.createModel() != FINGERPRINT_OK) {
+    Serial.println(F("Las huellas no coinciden."));
+    return false;
+  }
+
+  if (finger.storeModel(id) == FINGERPRINT_OK) {
+    Serial.print(F("Huella almacenada con ID #"));
+    Serial.println(id);
+    return true;
+  } else {
+    Serial.println(F("Error al guardar huella."));
+    return false;
+  }
+}
+
+int verificarHuella() {
+  Serial.println(F("\nColoca tu dedo para verificación..."));
+  int p = -1;
+
+  while (p != FINGERPRINT_OK) {
+    p = finger.getImage();
+    if (p == FINGERPRINT_NOFINGER) {
+      delay(100);
+      continue;
+    }
+  }
+
+  Serial.println(F("Imagen capturada correctamente."));
+
+  p = finger.image2Tz();
+  if (p != FINGERPRINT_OK) {
+    Serial.println(F("Error al convertir la imagen."));
+    return -1;
+  }
+
+  p = finger.fingerFastSearch();
+  if (p == FINGERPRINT_OK) {
+    Serial.print(F("Huella encontrada en ID #"));
+    Serial.println(finger.fingerID);
+    Serial.print(F("Nivel de coincidencia: "));
+    Serial.println(finger.confidence);
+    return finger.fingerID;
+  } else if (p == FINGERPRINT_NOTFOUND) {
+    Serial.println(F("Huella no encontrada."));
+    return -1;
+  } else {
+    Serial.print(F("Error en la búsqueda. Código: "));
+    Serial.println(p);
+    return -1;
+  }
+}
+
+/* =========================
+   NUEVAS FUNCIONES DE BORRADO
+   ========================= */
+
+void borrarHuella(String cmd) {
+  int id = -1;
+  // Extraer el número después de 'D'
+  int spaceIndex = cmd.indexOf(' ');
+  if (spaceIndex > 0) {
+    id = cmd.substring(spaceIndex + 1).toInt();
+  }
+
+  if (id < 0) {
+    Serial.println(F("Debe indicar el ID a eliminar. Ejemplo: D 3"));
+    return;
+  }
+
+  Serial.print(F("Eliminando huella con ID #"));
+  Serial.println(id);
+
+  if (finger.deleteModel(id) == FINGERPRINT_OK) {
+    Serial.println(F("Huella eliminada correctamente."));
+  } else {
+    Serial.println(F("Error al eliminar la huella o ID no encontrado."));
+  }
+}
+
+void borrarTodas() {
+  Serial.println(F("Eliminando TODAS las huellas del sensor..."));
+  if (finger.emptyDatabase() == FINGERPRINT_OK) {
+    Serial.println(F("Todas las huellas fueron eliminadas correctamente."));
+  } else {
+    Serial.println(F("Error al intentar eliminar todas las huellas."));
+  }
+}

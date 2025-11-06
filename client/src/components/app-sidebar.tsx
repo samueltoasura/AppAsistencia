@@ -1,4 +1,4 @@
-import { Home, UserPlus, CheckCircle, Users, FileText, Fingerprint } from "lucide-react";
+import { Home, UserPlus, CheckCircle, Users, FileText, Fingerprint, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +37,11 @@ const menuItems = [
     title: "Reportes",
     url: "/reportes",
     icon: FileText,
+  },
+  {
+    title: "Administración",
+    url: "/administracion",
+    icon: Settings,
   },
 ];
 

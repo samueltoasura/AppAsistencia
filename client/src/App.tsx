@@ -13,6 +13,7 @@ import Registro from "@/pages/Registro";
 import Verificacion from "@/pages/Verificacion";
 import Estudiantes from "@/pages/Estudiantes";
 import Reportes from "@/pages/Reportes";
+import Administracion from "@/pages/Administracion";
 import NotFound from "@/pages/not-found";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/verificacion" component={Verificacion} />
       <Route path="/estudiantes" component={Estudiantes} />
       <Route path="/reportes" component={Reportes} />
+      <Route path="/administracion" component={Administracion} />
       <Route component={NotFound} />
     </Switch>
   );
